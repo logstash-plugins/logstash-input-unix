@@ -1,7 +1,7 @@
 # encoding: utf-8
 require "logstash/inputs/base"
 require "logstash/namespace"
-require "socket"
+require "logstash/util/socket_peer"
 
 # Read events over a UNIX socket.
 #
