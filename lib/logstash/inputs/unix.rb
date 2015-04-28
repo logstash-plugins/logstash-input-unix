@@ -20,7 +20,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   config :path, :validate => :string, :required => true
  
   # Set the default socket permissions
-  config :file_mode, :validate => :number, :default => 775
+  config :file_mode, :validate => :string, :default => 'ug=wrx,o=wx'
 
   # Remove socket file in case of EADDRINUSE failure
   config :force_unlink, :validate => :boolean, :default => false
