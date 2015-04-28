@@ -18,6 +18,9 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # When mode is `server`, the path to listen on.
   # When mode is `client`, the path to connect to.
   config :path, :validate => :string, :required => true
+ 
+  # Set the default socket permissions
+  config :file_mode, :validate => :number, :default => 775
 
   # Remove socket file in case of EADDRINUSE failure
   config :force_unlink, :validate => :boolean, :default => false
@@ -40,6 +43,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   def register
     require "socket"
     require "timeout"
+    require "fileutils"
 
     if server?
       @logger.info("Starting unix input listener", :address => "#{@path}", :force_unlink => "#{@force_unlink}")
@@ -61,6 +65,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
                       :path => @path)
         raise
       end
+      @logger.debug("chmod socket", :path => @path, :mode => @file_mode)
+      FileUtils.chmod(@file_mode, @path)
     end
   end # def register
 
