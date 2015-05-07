@@ -49,11 +49,15 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       @logger.info("Starting unix input listener", :address => "#{@path}", :force_unlink => "#{@force_unlink}")
       begin
         @server_socket = UNIXServer.new(@path)
+        @logger.debug("chmod socket", :path => @path, :mode => @file_mode)
+        FileUtils.chmod(@file_mode, @path)
       rescue Errno::EADDRINUSE, IOError
         if @force_unlink
           File.unlink(@path)
           begin
             @server_socket = UNIXServer.new(@path)
+            @logger.debug("chmod socket", :path => @path, :mode => @file_mode)
+            FileUtils.chmod(@file_mode, @path)
             return
           rescue Errno::EADDRINUSE, IOError
             @logger.error("!!!Could not start UNIX server: Address in use",
@@ -65,8 +69,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
                       :path => @path)
         raise
       end
-      @logger.debug("chmod socket", :path => @path, :mode => @file_mode)
-      FileUtils.chmod(@file_mode, @path)
     end
   end # def register
 
