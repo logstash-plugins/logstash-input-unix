@@ -91,7 +91,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         @codec.decode(buf) do |event|
           decorate(event)
           event["host"] = hostname
-          event["path"] = @path
           output_queue << event
         end
       end # loop do
