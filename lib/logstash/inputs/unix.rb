@@ -12,6 +12,7 @@ require "socket"
 class LogStash::Inputs::Unix < LogStash::Inputs::Base
   class Interrupted < StandardError; end
   config_name "unix"
+  #milestone 1
 
   default :codec, "line"
 
