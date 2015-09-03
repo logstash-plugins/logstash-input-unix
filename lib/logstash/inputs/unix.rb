@@ -2,6 +2,7 @@
 require "logstash/inputs/base"
 require "logstash/namespace"
 require "logstash/util/socket_peer"
+require "fileutils"
 
 # Read events over a UNIX socket.
 #
@@ -32,6 +33,10 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # `client` connects to a server.
   config :mode, :validate => ["server", "client"], :default => "server"
 
+  # Permissions of the server file. When running in server mode, these permissions
+  # are applied to the new server socket.
+  config :chmod :validate => :number, :default => 666
+
   def initialize(*args)
     super(*args)
   end # def initialize
@@ -60,6 +65,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         @logger.error("Could not start UNIX server: Address in use",
                       :path => @path)
         raise
+      end
+      File.chmod(@chmod, @path if @chmod
       end
     end
   end # def register
