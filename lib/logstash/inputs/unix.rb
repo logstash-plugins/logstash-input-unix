@@ -68,7 +68,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   def handle_socket(socket, output_queue)
     begin
       hostname = Socket.gethostname
-      loop do
+      while !stop?
         buf = nil
         # NOTE(petef): the timeout only hits after the line is read
         # or socket dies
@@ -86,13 +86,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
           event["path"] = @path
           output_queue << event
         end
-      end # loop do
+      end
     rescue => e
-      @logger.debug("Closing connection", :path => @path,
-      :exception => e, :backtrace => e.backtrace)
+      @logger.debug("Closing connection", :path => @path, :exception => e, :backtrace => e.backtrace)
     rescue Timeout::Error
-      @logger.debug("Closing connection after read timeout",
-      :path => @path)
+      @logger.debug("Closing connection after read timeout", :path => @path)
     end # begin
 
   ensure
@@ -100,7 +98,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       socket.close
     rescue IOError
       #pass
-    end # begin
+    end
   end
 
   private
@@ -111,52 +109,31 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   public
   def run(output_queue)
     if server?
-      @thread = Thread.current
       @client_threads = []
-      loop do
+      while !stop?
         # Start a new thread for each connection.
-        begin
-          @client_threads << Thread.start(@server_socket.accept) do |s|
-            # TODO(sissel): put this block in its own method.
-
-            @logger.debug("Accepted connection",
-                          :server => "#{@path}")
-            begin
-              handle_socket(s, output_queue)
-            rescue Interrupted
-              s.close rescue nil
-            end
-          end # Thread.start
-        rescue IOError, Interrupted
-          if @interrupted
-            # Intended shutdown, get out of the loop
-            @server_socket.close
-            @client_threads.each do |thread|
-              thread.raise(IOError.new)
-            end
-            break
-          else
-            # Else it was a genuine IOError caused by something else, so propagate it up..
-            raise
-          end
+        @client_threads << Thread.start(@server_socket.accept) do |s|
+          @logger.debug("Accepted connection", :server => "#{@path}")
+          handle_socket(s, output_queue)
         end
-      end # loop
+      end
     else
-      loop do
-        client_socket = UNIXSocket.new(@path)
-        client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
+      while !stop?
+        @client_socket = UNIXSocket.new(@path)
+        @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
         @logger.debug("Opened connection", :client => @path)
-        handle_socket(client_socket, output_queue)
-      end # loop
+        handle_socket(@client_socket, output_queue)
+      end
     end
   end # def run
 
   public
-  def teardown
+  def stop
     if server?
       File.unlink(@path)
-      @interrupted = true
-      @thread.raise(Interrupted.new)
+      @server_socket.close
+    else
+      @client_socket.close
     end
-  end # def teardown
+  end # def stop
 end # class LogStash::Inputs::Unix
