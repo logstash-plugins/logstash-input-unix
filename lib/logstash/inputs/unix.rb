@@ -125,6 +125,10 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         handle_socket(@client_socket, output_queue)
       end
     end
+  rescue IOError
+    # if stop is called during @server_socket.accept
+    # the thread running `run` will raise an IOError
+    # We catch IOError here and do nothing, just let the method terminate
   end # def run
 
   public

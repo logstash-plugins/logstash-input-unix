@@ -19,8 +19,12 @@ class UnixSocketHelper
 
   def loop(forever=false)
     @thread = Thread.new do
-      s = @socket.accept
-      s.puts "hi" while forever
+      begin
+        s = @socket.accept
+        s.puts "hi" while forever
+      rescue Errno::EPIPE
+        # ...
+      end
     end
     self
   end
