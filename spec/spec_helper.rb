@@ -22,7 +22,7 @@ class UnixSocketHelper
       begin
         s = @socket.accept
         s.puts "hi" while forever
-      rescue Errno::EPIPE
+      rescue Errno::EPIPE, Errno::ECONNRESET
         # ...
       end
     end
