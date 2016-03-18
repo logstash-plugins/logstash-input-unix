@@ -1,3 +1,5 @@
+# 2.0.5
+  - New dependency requirements for logstash-core for the 5.0 release
 ## 2.0.2
  - Make plugin and spec work when Thread.abort_on_exception is true
 
