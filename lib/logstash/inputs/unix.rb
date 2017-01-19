@@ -139,5 +139,9 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
     else
       @client_socket.close
     end
+  rescue IOError
+    # if socket with @mode == client was closed by the client, an other call to @client_socket.close
+    # will raise an IOError. We catch IOError here and do nothing, just let logstash terminate
+    @logger.warn("Cloud not close socket while Logstash is shutting down. Socket already closed by the other party?", :path => @path)
   end # def stop
 end # class LogStash::Inputs::Unix
