@@ -119,10 +119,15 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       end
     else
       while !stop?
-        @client_socket = UNIXSocket.new(@path)
-        @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
-        @logger.debug("Opened connection", :client => @path)
-        handle_socket(@client_socket, output_queue)
+        if File.socket?(@path) then
+          @client_socket = UNIXSocket.new(@path)
+          @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
+          @logger.debug("Opened connection 1", :client => @path)
+          handle_socket(@client_socket, output_queue)
+        else
+          @logger.debug("Wait for socket to appear", :client => @path)
+          sleep(5)
+        end
       end
     end
   rescue IOError
@@ -135,9 +140,9 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   def stop
     if server?
       File.unlink(@path)
-      @server_socket.close
+      @server_socket.close unless @server_socket.nil?
     else
-      @client_socket.close
+      @client_socket.close unless @client_socket.nil?
     end
   end # def stop
 end # class LogStash::Inputs::Unix
