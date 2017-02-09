@@ -1,3 +1,6 @@
+## 3.0.3
+  - Preserve values provided in `add_field` for `host` and `path`.
+
 ## 3.0.2
   - Relax constraint on logstash-core-plugin-api to >= 1.60 <= 2.99
 
