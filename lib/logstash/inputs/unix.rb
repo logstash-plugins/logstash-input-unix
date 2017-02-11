@@ -82,8 +82,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         end
         @codec.decode(buf) do |event|
           decorate(event)
-          event.set("host", hostname) if !event.include?("host")
-          event.set("path", @path) if !event.include?("path")
+          event.set("host", hostname) unless event.include?("host")
+          event.set("path", @path) unless event.include?("path")
           output_queue << event
         end
       end
