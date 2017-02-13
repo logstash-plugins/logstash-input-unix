@@ -32,6 +32,12 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # `client` connects to a server.
   config :mode, :validate => ["server", "client"], :default => "server"
 
+  # Amount of time in seconds to wait if the socket file is not present, before retrying.
+  # Only positive values are allowed.
+  #
+  # This setting is only used if `mode` is `client`.
+  config :socket_not_present_retry_interval_seconds, :validate => :number, :required => true, :default => 5
+
   def initialize(*args)
     super(*args)
   end # def initialize
@@ -60,6 +66,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         @logger.error("Could not start UNIX server: Address in use",
                       :path => @path)
         raise
+      end
+    else # client
+      if @socket_not_present_retry_interval_seconds < 0
+        @logger.warn("Value #{@socket_not_present_retry_interval_seconds} for socket_not_present_retry_interval_seconds is not valid, using default value of 5 instead")
+        @socket_not_present_retry_interval_seconds = 5
       end
     end
   end # def register
@@ -122,11 +133,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         if File.socket?(@path) then
           @client_socket = UNIXSocket.new(@path)
           @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
-          @logger.debug("Opened connection 1", :client => @path)
+          @logger.debug("Opened connection", :client => @path)
           handle_socket(@client_socket, output_queue)
         else
-          @logger.debug("Wait for socket to appear", :client => @path)
-          sleep(5)
+          @logger.warn("Socket not present, wait for #{@subscription_retry_interval_seconds} seconds for socket to appear", :client => @path)
+          sleep @socket_not_present_retry_interval_seconds
         end
       end
     end
