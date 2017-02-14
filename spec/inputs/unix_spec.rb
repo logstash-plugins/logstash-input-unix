@@ -12,6 +12,19 @@ describe LogStash::Inputs::Unix do
     expect { plugin.register }.to_not raise_error
   end
 
+  describe "when mode is client" do
+
+    let(:mode) { "client" }
+
+    context "if socket_not_present_retry_interval_seconds is out of bounds" do
+      it "should fallback to default value" do
+        plugin = LogStash::Plugin.lookup("input", "unix").new({ "path" => tempfile.path, "force_unlink" => true, "mode" => mode, "socket_not_present_retry_interval_seconds" => -1 })
+        plugin.register
+        expect(plugin.instance_variable_get(:@socket_not_present_retry_interval_seconds)).to be 5
+      end
+    end
+  end
+
   describe "when interrupting the plugin" do
 
     context "#server" do

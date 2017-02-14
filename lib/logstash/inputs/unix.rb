@@ -32,6 +32,12 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # `client` connects to a server.
   config :mode, :validate => ["server", "client"], :default => "server"
 
+  # Amount of time in seconds to wait if the socket file is not present, before retrying.
+  # Only positive values are allowed.
+  #
+  # This setting is only used if `mode` is `client`.
+  config :socket_not_present_retry_interval_seconds, :validate => :number, :required => true, :default => 5
+
   def initialize(*args)
     super(*args)
   end # def initialize
@@ -60,6 +66,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         @logger.error("Could not start UNIX server: Address in use",
                       :path => @path)
         raise
+      end
+    else # client
+      if @socket_not_present_retry_interval_seconds < 0
+        @logger.warn("Value #{@socket_not_present_retry_interval_seconds} for socket_not_present_retry_interval_seconds is not valid, using default value of 5 instead")
+        @socket_not_present_retry_interval_seconds = 5
       end
     end
   end # def register
@@ -119,10 +130,15 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       end
     else
       while !stop?
-        @client_socket = UNIXSocket.new(@path)
-        @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
-        @logger.debug("Opened connection", :client => @path)
-        handle_socket(@client_socket, output_queue)
+        if File.socket?(@path) then
+          @client_socket = UNIXSocket.new(@path)
+          @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
+          @logger.debug("Opened connection", :client => @path)
+          handle_socket(@client_socket, output_queue)
+        else
+          @logger.warn("Socket not present, wait for #{@subscription_retry_interval_seconds} seconds for socket to appear", :client => @path)
+          sleep @socket_not_present_retry_interval_seconds
+        end
       end
     end
   rescue IOError
@@ -135,9 +151,9 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   def stop
     if server?
       File.unlink(@path)
-      @server_socket.close
+      @server_socket.close unless @server_socket.nil?
     else
-      @client_socket.close
+      @client_socket.close unless @client_socket.nil?
     end
   rescue IOError
     # if socket with @mode == client was closed by the client, an other call to @client_socket.close
