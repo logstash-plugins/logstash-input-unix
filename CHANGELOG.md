@@ -1,3 +1,6 @@
+## 3.0.5
+  - Fix some documentation issues
+
 ## 3.0.3
   - Preserve values provided in `add_field` for `host` and `path`.
 
