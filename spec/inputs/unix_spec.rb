@@ -47,6 +47,26 @@ describe LogStash::Inputs::Unix do
         unix_socket.close
       end
 
+      context "when file_access_mode has not been configured" do
+        it "should use the default file permission" do
+          plugin = LogStash::Plugin.lookup("input", "unix").new(config)
+
+          expect { plugin.register }.to_not raise_error
+          expect(File.stat(tempfile).mode.to_s(8)[2..5]).to eq("0774")
+        end
+      end
+
+      context "when file_access_mode has been configured" do
+        it "should use the default file permission" do
+          plugin = LogStash::Plugin.lookup("input", "unix").new(
+            config.merge("file_access_mode" => "0000")
+          )
+
+          expect { plugin.register }.to_not raise_error
+          expect(File.stat(tempfile).mode.to_s(8)[2..5]).to eq("0000")
+        end
+      end
+
       context "when the unix socket has data to be read" do
         it_behaves_like "an interruptible input plugin" do
           let(:run_forever) { true }

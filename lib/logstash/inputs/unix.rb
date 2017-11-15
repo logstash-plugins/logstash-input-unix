@@ -19,6 +19,9 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # When mode is `client`, the path to connect to.
   config :path, :validate => :string, :required => true
 
+  # Set the default socket permissions
+  config :file_access_mode, :validate => :string, :default => '0774'
+
   # Remove socket file in case of EADDRINUSE failure
   config :force_unlink, :validate => :boolean, :default => false
 
@@ -46,16 +49,19 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   def register
     require "socket"
     require "timeout"
+    require "fileutils"
 
     if server?
       @logger.info("Starting unix input listener", :address => "#{@path}", :force_unlink => "#{@force_unlink}")
       begin
         @server_socket = UNIXServer.new(@path)
+        set_socket_permission(path, @file_mode)
       rescue Errno::EADDRINUSE, IOError
         if @force_unlink
           File.unlink(@path)
           begin
             @server_socket = UNIXServer.new(@path)
+            set_socket_permission(path, @file_mode)
             return
           rescue Errno::EADDRINUSE, IOError
             @logger.error("!!!Could not start UNIX server: Address in use",
@@ -74,6 +80,12 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       end
     end
   end # def register
+
+  private
+  def set_socket_permission(path, file_mode)
+    @logger.debug("chmod socket", :path => path, :mode => file_mode)
+    FileUtils.chmod(@file_mode, path)
+  end
 
   private
   def handle_socket(socket, output_queue)
