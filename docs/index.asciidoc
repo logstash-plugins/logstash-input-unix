@@ -1,5 +1,6 @@
 :plugin: unix
 :type: input
+:default_codec: line
 
 ///////////////////////////////////////////
 START - GENERATED VARIABLES, DO NOT EDIT!
@@ -101,3 +102,5 @@ This setting is only used if `mode` is `client`.
 
 [id="plugins-{type}s-{plugin}-common-options"]
 include::{include_path}/{type}.asciidoc[]
+
+:default_codec!:
