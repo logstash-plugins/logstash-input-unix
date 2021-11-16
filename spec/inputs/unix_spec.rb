@@ -6,22 +6,23 @@ require "tempfile"
 
 describe LogStash::Inputs::Unix do
 
-  let(:tempfile)   { Tempfile.new("/tmp/foo") }
+  let(:config) { { 'path' => tempfile.path, 'socket_not_present_retry_interval_seconds' => 1, 'force_unlink' => true } }
+  let(:tempfile) { Tempfile.new("unix-input-test") }
+
+  subject(:input) { described_class.new(config) }
 
   it "should register without errors" do
-    plugin = LogStash::Plugin.lookup("input", "unix").new({ "path" => tempfile.path, "force_unlink" => true })
-    expect { plugin.register }.to_not raise_error
+    expect { subject.register }.to_not raise_error
   end
 
   describe "when mode is client" do
 
-    let(:mode) { "client" }
+    let(:config) { super().merge("mode" => 'client', "socket_not_present_retry_interval_seconds" => -1) }
 
     context "if socket_not_present_retry_interval_seconds is out of bounds" do
       it "should fallback to default value" do
-        plugin = LogStash::Plugin.lookup("input", "unix").new({ "path" => tempfile.path, "force_unlink" => true, "mode" => mode, "socket_not_present_retry_interval_seconds" => -1 })
-        plugin.register
-        expect(plugin.instance_variable_get(:@socket_not_present_retry_interval_seconds)).to be 5
+        subject.register
+        expect( subject.socket_not_present_retry_interval_seconds ).to eql 5
       end
     end
   end
@@ -30,7 +31,7 @@ describe LogStash::Inputs::Unix do
 
     context "#server" do
       it_behaves_like "an interruptible input plugin" do
-        let(:config) { { "path" => tempfile.path, "force_unlink" => true } }
+        let(:config) { super() }
       end
     end
 
