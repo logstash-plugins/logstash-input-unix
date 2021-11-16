@@ -69,11 +69,10 @@ describe LogStash::Inputs::Unix do
       it 'generates events with host, path and message set' do
         subject.register
         plugin_thread = Thread.new(subject, queue) { |subject, queue| subject.run(queue) }
-        sleep 0.5
         expect(plugin_thread).to be_alive
+        try(10) { expect( queue ).to_not be_empty }
         subject.do_stop # stop the plugin
 
-        expect( queue ).to_not be_empty
         event = queue.first
 
         if ecs_select.active_mode == :disabled
