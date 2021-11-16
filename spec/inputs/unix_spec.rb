@@ -64,7 +64,7 @@ describe LogStash::Inputs::Unix do
 
       let(:config) { super().merge 'ecs_compatibility' => ecs_compatibility }
 
-      let(:queue) { Array.new }
+      let(:queue) { java.util.Vector.new }
 
       it 'generates events with host, path and message set' do
         subject.register
