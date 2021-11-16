@@ -36,9 +36,9 @@ describe LogStash::Inputs::Unix do
     end
 
     context "#client" do
-      let(:tempfile)    { "/tmp/sock#{rand(65532)}" }
-      let(:config)      { { "path" => tempfile, "mode" => "client" } }
-      let(:unix_socket) { UnixSocketHelper.new.new_socket(tempfile) }
+      let(:temp_path)    { "/tmp/sock#{rand(65532)}" }
+      let(:config)      { super().merge "path" => temp_path, "mode" => "client" }
+      let(:unix_socket) { UnixSocketHelper.new('foo').new_socket(temp_path) }
       let(:run_forever) { true }
 
       before(:each) do
@@ -59,6 +59,24 @@ describe LogStash::Inputs::Unix do
         it_behaves_like "an interruptible input plugin" do
           let(:run_forever) { false }
         end
+      end
+
+      let(:queue) { Array.new }
+
+      it 'generates events with host, path and message set' do
+        subject.register
+        plugin_thread = Thread.new(subject, queue) { |subject, queue| subject.run(queue) }
+        sleep 0.5
+        expect(plugin_thread).to be_alive
+        subject.do_stop # stop the plugin
+
+        expect( queue ).to_not be_empty
+        event = queue.first
+
+        expect( event.get('host') ).to be_a String
+        expect( event.get('path') ).to eql temp_path
+
+        expect( event.get('message') ).to eql 'foo'
       end
     end
 
