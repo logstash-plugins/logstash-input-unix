@@ -67,13 +67,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
             @server_socket = UNIXServer.new(@path)
             return
           rescue Errno::EADDRINUSE, IOError
-            @logger.error("!!!Could not start UNIX server: Address in use",
-                          :path => @path)
+            @logger.error("Could not start UNIX server: address in use", :path => @path)
             raise
           end
         end
-        @logger.error("Could not start UNIX server: Address in use",
-                      :path => @path)
+        @logger.error("Could not start UNIX server: address in use", :path => @path)
         raise
       end
     else # client
@@ -107,11 +105,15 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
           output_queue << event
         end
       end
-    rescue => e
-      @logger.debug("Closing connection", :path => @path, :exception => e, :backtrace => e.backtrace)
     rescue Timeout::Error
-      @logger.debug("Closing connection after read timeout", :path => @path)
-    end # begin
+      @logger.info("Closing connection after read timeout", :path => @path)
+    rescue => e
+      if @logger.debug?
+        @logger.debug("Closing connection", :path => @path, :exception => e, :backtrace => e.backtrace)
+      else
+        @logger.info("Closing connection", :path => @path, :exception => e)
+      end
+    end
 
   ensure
     begin
