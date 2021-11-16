@@ -48,7 +48,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
     require "timeout"
 
     if server?
-      @logger.info("Starting unix input listener", :address => "#{@path}", :force_unlink => "#{@force_unlink}")
+      @logger.info("Starting unix input listener", :address => @path, :force_unlink => @force_unlink)
       begin
         @server_socket = UNIXServer.new(@path)
       rescue Errno::EADDRINUSE, IOError
@@ -68,8 +68,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         raise
       end
     else # client
-      if @socket_not_present_retry_interval_seconds < 0
-        @logger.warn("Value #{@socket_not_present_retry_interval_seconds} for socket_not_present_retry_interval_seconds is not valid, using default value of 5 instead")
+      if socket_not_present_retry_interval_seconds < 0
+        @logger.warn("Value #{socket_not_present_retry_interval_seconds} for socket_not_present_retry_interval_seconds is not valid, using default value of 5 instead")
         @socket_not_present_retry_interval_seconds = 5
       end
     end
@@ -124,7 +124,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       while !stop?
         # Start a new thread for each connection.
         @client_threads << Thread.start(@server_socket.accept) do |s|
-          @logger.debug("Accepted connection", :server => "#{@path}")
+          @logger.debug("Accepted connection", :server => @path)
           handle_socket(s, output_queue)
         end
       end
@@ -136,8 +136,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
           @logger.debug("Opened connection", :client => @path)
           handle_socket(@client_socket, output_queue)
         else
-          @logger.warn("Socket not present, wait for #{@subscription_retry_interval_seconds} seconds for socket to appear", :client => @path)
-          sleep @socket_not_present_retry_interval_seconds
+          @logger.warn("Socket not present, wait for #{socket_not_present_retry_interval_seconds} seconds for socket to appear", :client => @path)
+          sleep socket_not_present_retry_interval_seconds
         end
       end
     end
@@ -158,6 +158,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   rescue IOError
     # if socket with @mode == client was closed by the client, an other call to @client_socket.close
     # will raise an IOError. We catch IOError here and do nothing, just let logstash terminate
-    @logger.warn("Cloud not close socket while Logstash is shutting down. Socket already closed by the other party?", :path => @path)
+    @logger.warn("Could not close socket while Logstash is shutting down. Socket already closed by the other party?", :path => @path)
   end # def stop
 end # class LogStash::Inputs::Unix
