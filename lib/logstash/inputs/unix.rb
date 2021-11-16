@@ -3,6 +3,8 @@ require "logstash/inputs/base"
 require "logstash/namespace"
 require "logstash/util/socket_peer"
 
+require 'logstash/plugin_mixins/ecs_compatibility_support'
+
 # Read events over a UNIX socket.
 #
 # Like `stdin` and `file` inputs, each event is assumed to be one line of text.
@@ -10,7 +12,11 @@ require "logstash/util/socket_peer"
 # Can either accept connections from clients or connect to a server,
 # depending on `mode`.
 class LogStash::Inputs::Unix < LogStash::Inputs::Base
+
+  include LogStash::PluginMixins::ECSCompatibilitySupport(:disabled, :v1, :v8 => :v1)
+
   class Interrupted < StandardError; end
+
   config_name "unix"
 
   default :codec, "line"
@@ -38,8 +44,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # This setting is only used if `mode` is `client`.
   config :socket_not_present_retry_interval_seconds, :validate => :number, :required => true, :default => 5
 
-  def initialize(*args)
-    super(*args)
+  def initialize(*params)
+    super
+
+    @host_name_field = ecs_select[disabled: 'host', v1: '[host][name]']
+    @file_path_field = ecs_select[disabled: 'path', v1: '[file][path]']
   end # def initialize
 
   public
@@ -93,8 +102,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         end
         @codec.decode(buf) do |event|
           decorate(event)
-          event.set("host", hostname) unless event.include?("host")
-          event.set("path", @path) unless event.include?("path")
+          event.set(@host_name_field, hostname) unless event.include?(@host_name_field)
+          event.set(@file_path_field, @path) unless event.include?(@file_path_field)
           output_queue << event
         end
       end

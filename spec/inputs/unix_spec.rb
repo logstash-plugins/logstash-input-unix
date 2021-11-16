@@ -1,6 +1,7 @@
 # encoding: utf-8
 require_relative "../spec_helper"
 require "logstash/devutils/rspec/shared_examples"
+require 'logstash/plugin_mixins/ecs_compatibility_support/spec_helper'
 require "stud/temporary"
 require "tempfile"
 
@@ -27,39 +28,41 @@ describe LogStash::Inputs::Unix do
     end
   end
 
-  describe "when interrupting the plugin" do
+  context "#server" do
+    it_behaves_like "an interruptible input plugin" do
+      let(:config) { super().merge "mode" => 'server' }
+    end
+  end
 
-    context "#server" do
+  context "#client", :ecs_compatibility_support do
+    let(:temp_path)    { "/tmp/sock#{rand(65532)}" }
+    let(:config)      { super().merge "path" => temp_path, "mode" => "client" }
+    let(:unix_socket) { UnixSocketHelper.new('foo').new_socket(temp_path) }
+    let(:run_forever) { true }
+
+    before(:each) do
+      unix_socket.loop(run_forever)
+    end
+
+    after(:each) do
+      unix_socket.close
+    end
+
+    context "when the unix socket has data to be read" do
       it_behaves_like "an interruptible input plugin" do
-        let(:config) { super() }
+        let(:run_forever) { true }
       end
     end
 
-    context "#client" do
-      let(:temp_path)    { "/tmp/sock#{rand(65532)}" }
-      let(:config)      { super().merge "path" => temp_path, "mode" => "client" }
-      let(:unix_socket) { UnixSocketHelper.new('foo').new_socket(temp_path) }
-      let(:run_forever) { true }
-
-      before(:each) do
-        unix_socket.loop(run_forever)
+    context "when the unix socket has no data to be read" do
+      it_behaves_like "an interruptible input plugin" do
+        let(:run_forever) { false }
       end
+    end
 
-      after(:each) do
-        unix_socket.close
-      end
+    ecs_compatibility_matrix(:disabled, :v1, :v8) do |ecs_select|
 
-      context "when the unix socket has data to be read" do
-        it_behaves_like "an interruptible input plugin" do
-          let(:run_forever) { true }
-        end
-      end
-
-      context "when the unix socket has no data to be read" do
-        it_behaves_like "an interruptible input plugin" do
-          let(:run_forever) { false }
-        end
-      end
+      let(:config) { super().merge 'ecs_compatibility' => ecs_compatibility }
 
       let(:queue) { Array.new }
 
@@ -73,12 +76,20 @@ describe LogStash::Inputs::Unix do
         expect( queue ).to_not be_empty
         event = queue.first
 
-        expect( event.get('host') ).to be_a String
-        expect( event.get('path') ).to eql temp_path
+        if ecs_select.active_mode == :disabled
+          expect( event.get('host') ).to be_a String
+          expect( event.get('path') ).to eql temp_path
+        else
+          expect( event.get('[host][name]') ).to be_a String
+          expect( event.get('[file][path]') ).to eql temp_path
+          expect( event.include?('path') ).to be false
+        end
 
         expect( event.get('message') ).to eql 'foo'
       end
+
     end
 
   end
+
 end
