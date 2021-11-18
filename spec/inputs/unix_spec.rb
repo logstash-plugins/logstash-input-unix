@@ -57,7 +57,6 @@ describe LogStash::Inputs::Unix do
     context "when the unix socket has no data to be read" do
       it_behaves_like "an interruptible input plugin" do
         let(:run_forever) { false }
-        let(:allowed_lag) { 5 } # due Logstash 6.x in CI
       end
     end
 
