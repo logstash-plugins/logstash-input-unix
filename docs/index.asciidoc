@@ -31,8 +31,10 @@ depending on `mode`.
 [id="plugins-{type}s-{plugin}-ecs"]
 ==== Compatibility with the Elastic Common Schema (ECS)
 
-This plugin adds extra fields about the event's source, and can be configured to do so
-in an {ecs-ref}[ECS-compatible] way with <<plugins-{type}s-{plugin}-ecs_compatibility>>.
+This plugin adds extra fields about the event's source. 
+Configure the <<plugins-{type}s-{plugin}-ecs_compatibility>> option if you want
+to ensure that these fields are compatible with {ecs-ref}[ECS].
+
 These fields are added after the event has been decoded by the appropriate codec,
 and will not overwrite existing values.
 
