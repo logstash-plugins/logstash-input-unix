@@ -1,5 +1,6 @@
 ## 3.1.1
-  - Fix: unable to stop plugin (on older versions of LS) [#29](https://github.com/logstash-plugins/logstash-input-unix/pull/29)
+  - Fix: unable to stop plugin (on LS 6.x) [#29](https://github.com/logstash-plugins/logstash-input-unix/pull/29)
+  - Refactor: plugin internals got reviewed for `data_timeout => ...` to work reliably
 
 ## 3.1.0
   - Feat: adjust fields for ECS compatibility [#28](https://github.com/logstash-plugins/logstash-input-unix/pull/28) 
