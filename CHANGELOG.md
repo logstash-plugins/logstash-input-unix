@@ -1,3 +1,6 @@
+## 3.1.1
+  - Fix: unable to stop plugin (on older versions of LS) [#29](https://github.com/logstash-plugins/logstash-input-unix/pull/29)
+
 ## 3.1.0
   - Feat: adjust fields for ECS compatibility [#28](https://github.com/logstash-plugins/logstash-input-unix/pull/28) 
 
