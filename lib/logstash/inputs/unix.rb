@@ -3,6 +3,8 @@ require "logstash/inputs/base"
 require "logstash/namespace"
 require "logstash/util/socket_peer"
 
+require 'logstash/plugin_mixins/ecs_compatibility_support'
+
 # Read events over a UNIX socket.
 #
 # Like `stdin` and `file` inputs, each event is assumed to be one line of text.
@@ -10,7 +12,11 @@ require "logstash/util/socket_peer"
 # Can either accept connections from clients or connect to a server,
 # depending on `mode`.
 class LogStash::Inputs::Unix < LogStash::Inputs::Base
+
+  include LogStash::PluginMixins::ECSCompatibilitySupport(:disabled, :v1, :v8 => :v1)
+
   class Interrupted < StandardError; end
+
   config_name "unix"
 
   default :codec, "line"
@@ -38,8 +44,11 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   # This setting is only used if `mode` is `client`.
   config :socket_not_present_retry_interval_seconds, :validate => :number, :required => true, :default => 5
 
-  def initialize(*args)
-    super(*args)
+  def initialize(*params)
+    super
+
+    @host_name_field = ecs_select[disabled: 'host', v1: '[host][name]']
+    @file_path_field = ecs_select[disabled: 'path', v1: '[file][path]']
   end # def initialize
 
   public
@@ -48,7 +57,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
     require "timeout"
 
     if server?
-      @logger.info("Starting unix input listener", :address => "#{@path}", :force_unlink => "#{@force_unlink}")
+      @logger.info("Starting unix input listener", :address => @path, :force_unlink => @force_unlink)
       begin
         @server_socket = UNIXServer.new(@path)
       rescue Errno::EADDRINUSE, IOError
@@ -58,18 +67,16 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
             @server_socket = UNIXServer.new(@path)
             return
           rescue Errno::EADDRINUSE, IOError
-            @logger.error("!!!Could not start UNIX server: Address in use",
-                          :path => @path)
+            @logger.error("Could not start UNIX server: address in use", :path => @path)
             raise
           end
         end
-        @logger.error("Could not start UNIX server: Address in use",
-                      :path => @path)
+        @logger.error("Could not start UNIX server: address in use", :path => @path)
         raise
       end
     else # client
-      if @socket_not_present_retry_interval_seconds < 0
-        @logger.warn("Value #{@socket_not_present_retry_interval_seconds} for socket_not_present_retry_interval_seconds is not valid, using default value of 5 instead")
+      if socket_not_present_retry_interval_seconds < 0
+        @logger.warn("Value #{socket_not_present_retry_interval_seconds} for socket_not_present_retry_interval_seconds is not valid, using default value of 5 instead")
         @socket_not_present_retry_interval_seconds = 5
       end
     end
@@ -93,16 +100,20 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         end
         @codec.decode(buf) do |event|
           decorate(event)
-          event.set("host", hostname) unless event.include?("host")
-          event.set("path", @path) unless event.include?("path")
+          event.set(@host_name_field, hostname) unless event.include?(@host_name_field)
+          event.set(@file_path_field, @path) unless event.include?(@file_path_field)
           output_queue << event
         end
       end
-    rescue => e
-      @logger.debug("Closing connection", :path => @path, :exception => e, :backtrace => e.backtrace)
     rescue Timeout::Error
-      @logger.debug("Closing connection after read timeout", :path => @path)
-    end # begin
+      @logger.info("Closing connection after read timeout", :path => @path)
+    rescue => e
+      if @logger.debug?
+        @logger.debug("Closing connection", :path => @path, :exception => e, :backtrace => e.backtrace)
+      else
+        @logger.info("Closing connection", :path => @path, :exception => e)
+      end
+    end
 
   ensure
     begin
@@ -124,7 +135,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       while !stop?
         # Start a new thread for each connection.
         @client_threads << Thread.start(@server_socket.accept) do |s|
-          @logger.debug("Accepted connection", :server => "#{@path}")
+          @logger.debug("Accepted connection", :server => @path)
           handle_socket(s, output_queue)
         end
       end
@@ -136,8 +147,8 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
           @logger.debug("Opened connection", :client => @path)
           handle_socket(@client_socket, output_queue)
         else
-          @logger.warn("Socket not present, wait for #{@subscription_retry_interval_seconds} seconds for socket to appear", :client => @path)
-          sleep @socket_not_present_retry_interval_seconds
+          @logger.warn("Socket not present, wait for #{socket_not_present_retry_interval_seconds} seconds for socket to appear", :client => @path)
+          sleep socket_not_present_retry_interval_seconds
         end
       end
     end
@@ -158,6 +169,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   rescue IOError
     # if socket with @mode == client was closed by the client, an other call to @client_socket.close
     # will raise an IOError. We catch IOError here and do nothing, just let logstash terminate
-    @logger.warn("Cloud not close socket while Logstash is shutting down. Socket already closed by the other party?", :path => @path)
+    @logger.warn("Could not close socket while Logstash is shutting down. Socket already closed by the other party?", :path => @path)
   end # def stop
 end # class LogStash::Inputs::Unix

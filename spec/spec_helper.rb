@@ -6,8 +6,9 @@ class UnixSocketHelper
 
   attr_reader :path
 
-  def initialize
+  def initialize(line = 'hi!')
     @socket = nil
+    @line = line
   end
 
   def new_socket(path)
@@ -21,9 +22,9 @@ class UnixSocketHelper
     @thread = Thread.new do
       begin
         s = @socket.accept
-        s.puts "hi" while forever
-      rescue Errno::EPIPE, Errno::ECONNRESET
-        # ...
+        s.puts @line while forever
+      rescue Errno::EPIPE, Errno::ECONNRESET => e
+        warn e.inspect if $VERBOSE
       end
     end
     self
