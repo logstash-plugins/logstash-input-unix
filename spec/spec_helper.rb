@@ -12,7 +12,7 @@ class UnixSocketHelper
   end
 
   def new_socket(path)
-    @path   = path
+    @path = path
     File.unlink if File.exists?(path) && File.socket?(path)
     @socket = UNIXServer.new(path)
     self
@@ -31,7 +31,6 @@ class UnixSocketHelper
   end
 
   def close
-    @thread.kill
     @socket.close
     File.unlink(path)
   end
