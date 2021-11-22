@@ -136,7 +136,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       end
     else
       while !stop?
-        if File.socket?(@path) then
+        if File.socket?(@path)
           @client_socket = UNIXSocket.new(@path)
           @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
           @logger.debug("Opened connection", :client => @path)
