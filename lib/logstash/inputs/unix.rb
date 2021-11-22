@@ -88,7 +88,7 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
 
         if data == :wait_readable
           if @data_timeout == -1 || IO.select([socket], nil, nil, @data_timeout)
-            retry # socket read operation
+            next # retry socket read
           else
             # socket not ready after @data_timeout seconds
             @logger.info("Closing connection after read timeout", :path => @path)
