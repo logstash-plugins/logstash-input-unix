@@ -15,8 +15,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
 
   include LogStash::PluginMixins::ECSCompatibilitySupport(:disabled, :v1, :v8 => :v1)
 
-  class Interrupted < StandardError; end
-
   config_name "unix"
 
   default :codec, "line"
