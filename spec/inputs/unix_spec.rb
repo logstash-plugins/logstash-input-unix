@@ -55,8 +55,29 @@ describe LogStash::Inputs::Unix do
     end
 
     context "when the unix socket has no data to be read" do
-      it_behaves_like "an interruptible input plugin" do
-        let(:run_forever) { false }
+
+      let(:run_forever) { false }
+
+      it_behaves_like "an interruptible input plugin"
+
+      context 'with timeout' do
+
+        let(:config) { super().merge "data_timeout" => 1.0 }
+
+        let(:queue) { SizedQueue.new(10) }
+        before(:each) { subject.register }
+        after(:each) { subject.do_stop }
+
+        it "closes socket after timeout" do
+          plugin_thread = Thread.new(subject, queue) { |subject, queue| subject.run(queue) }
+          sleep 0.5
+          client_socket = subject.instance_variable_get :@client_socket
+          expect( client_socket.closed? ).to be false
+          sleep 1.0 # allow timeout to kick in
+          expect( client_socket.closed? ).to be true
+          expect( plugin_thread ).to be_alive
+        end
+
       end
     end
 

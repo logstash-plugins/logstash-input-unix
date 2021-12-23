@@ -15,8 +15,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
 
   include LogStash::PluginMixins::ECSCompatibilitySupport(:disabled, :v1, :v8 => :v1)
 
-  class Interrupted < StandardError; end
-
   config_name "unix"
 
   default :codec, "line"
@@ -54,7 +52,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
   public
   def register
     require "socket"
-    require "timeout"
 
     if server?
       @logger.info("Starting unix input listener", :address => @path, :force_unlink => @force_unlink)
@@ -87,26 +84,25 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
     begin
       hostname = Socket.gethostname
       while !stop?
-        buf = nil
-        # NOTE(petef): the timeout only hits after the line is read
-        # or socket dies
-        # TODO(sissel): Why do we have a timeout here? What's the point?
-        if @data_timeout == -1
-          buf = socket.readpartial(16384)
-        else
-          Timeout::timeout(@data_timeout) do
-            buf = socket.readpartial(16384)
+        data = socket.read_nonblock(16384, exception: false)
+
+        if data == :wait_readable
+          if @data_timeout == -1 || IO.select([socket], nil, nil, @data_timeout)
+            next # retry socket read
+          else
+            # socket not ready after @data_timeout seconds
+            @logger.info("Closing connection after read timeout", :path => @path)
+            return
           end
         end
-        @codec.decode(buf) do |event|
+
+        @codec.decode(data) do |event|
           decorate(event)
           event.set(@host_name_field, hostname) unless event.include?(@host_name_field)
           event.set(@file_path_field, @path) unless event.include?(@file_path_field)
           output_queue << event
         end
       end
-    rescue Timeout::Error
-      @logger.info("Closing connection after read timeout", :path => @path)
     rescue => e
       if @logger.debug?
         @logger.debug("Closing connection", :path => @path, :exception => e, :backtrace => e.backtrace)
@@ -114,7 +110,6 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
         @logger.info("Closing connection", :path => @path, :exception => e)
       end
     end
-
   ensure
     begin
       socket.close
@@ -141,9 +136,9 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       end
     else
       while !stop?
-        if File.socket?(@path) then
+        if File.socket?(@path)
           @client_socket = UNIXSocket.new(@path)
-          @client_socket.instance_eval { class << self; include ::LogStash::Util::SocketPeer end }
+          @client_socket.extend ::LogStash::Util::SocketPeer
           @logger.debug("Opened connection", :client => @path)
           handle_socket(@client_socket, output_queue)
         else
