@@ -1,5 +1,5 @@
 ## 3.1.2
-  - Fix: eliminate high CPU usage when data timeout is disabled and no data is available on the socket
+  - Fix: eliminate high CPU usage when data timeout is disabled and no data is available on the socket [#30](https://github.com/logstash-plugins/logstash-input-unix/pull/30)
 
 ## 3.1.1
   - Fix: unable to stop plugin (on LS 6.x) [#29](https://github.com/logstash-plugins/logstash-input-unix/pull/29)
