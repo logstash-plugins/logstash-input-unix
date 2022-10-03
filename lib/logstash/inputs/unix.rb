@@ -84,16 +84,15 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
     begin
       hostname = Socket.gethostname
       while !stop?
-        data = socket.read_nonblock(16384, exception: false)
+        data = io_interruptable_readpartial(socket, 16384, @data_timeout)
 
-        if data == :wait_readable
-          if @data_timeout == -1 || IO.select([socket], nil, nil, @data_timeout)
-            next # retry socket read
-          else
-            # socket not ready after @data_timeout seconds
-            @logger.info("Closing connection after read timeout", :path => @path)
-            return
-          end
+        if data == :data_timeout
+          # socket not ready after @data_timeout seconds
+          @logger.info("Closing connection after read timeout", :path => @path)
+          return
+        elsif data == :stopping
+          @logger.trace("Shutdown in progress", :path => @path)
+          next # let next loop handle graceful stop
         end
 
         @codec.decode(data) do |event|
@@ -117,6 +116,35 @@ class LogStash::Inputs::Unix < LogStash::Inputs::Base
       #pass
     end
   end
+
+  ##
+  # Emulates `IO#readpartial` with a timeout and our plugin's stop-condition,
+  # limiting blocking calls to windows of 10s or less to ensure it can be interrupted.
+  #
+  # @param readable_io [IO] the IO to read from
+  # @param maxlen [Integer] the max bytes to be read
+  # @param timeout [Number] the maximum number of seconds to , or -1 to disable timeouts
+  #
+  # @return [:data_timeout] if timeout was reached before bytes were available
+  # @return [:stopping] if plugin stop-condition was detected before bytes were available
+  # @return [String] a non-empty string if bytes became available before the timeout was reached
+  def io_interruptable_readpartial(readable_io, maxlen, timeout)
+
+    data_timeout_deadline = timeout < 0 ? nil : Time.now + timeout
+    maximum_blocking_seconds = timeout < 0 || timeout > 10 ? 10 : timeout
+
+    loop do
+      return :stopping if stop?
+      result = readable_io.read_nonblock(maxlen, exception: false)
+
+      return result if result.kind_of?(String)
+      raise EOFError if result.nil?
+
+      return :data_timeout if (data_timeout_deadline && data_timeout_deadline < Time.now)
+      IO.select([readable_io], nil, nil, maximum_blocking_seconds)
+    end
+  end
+  private :io_interruptable_readpartial
 
   private
   def server?
