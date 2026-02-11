@@ -1,3 +1,6 @@
+## 3.1.3
+  - Fix: replace deprecated `File.exists?` with `File.exist?` for Ruby 3.4 (JRuby 10) compatibility [#31](https://github.com/logstash-plugins/logstash-input-unix/pull/31)
+
 ## 3.1.2
   - Fix: eliminate high CPU usage when data timeout is disabled and no data is available on the socket [#30](https://github.com/logstash-plugins/logstash-input-unix/pull/30)
 

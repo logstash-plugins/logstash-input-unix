@@ -13,7 +13,7 @@ class UnixSocketHelper
 
   def new_socket(path)
     @path = path
-    File.unlink if File.exists?(path) && File.socket?(path)
+    File.unlink if File.exist?(path) && File.socket?(path)
     @socket = UNIXServer.new(path)
     self
   end
